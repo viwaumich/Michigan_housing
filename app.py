@@ -50,7 +50,7 @@ def build_district_layers(upper=0):
         color=color,
         fill_color = color,
         dash_array='2, 3',    # Set the dash pattern (5 pixels filled, 10 pixels empty)
-        weight=1, 
+        weight=2, 
     )
     if upper == 1:
         upper_layers.append(layerk)
@@ -131,7 +131,7 @@ basemaps = {
   "NatGeoWorldMap": L.basemaps.Esri.NatGeoWorldMap
 }
 
-layernames = ['Marker', "Circle","Legislative districts (Upper house)", "Legislative districts (Lower house)"]
+layernames = ["Marker (name, address, # sites, source)", "Circle (location only)", "Legislative districts (Michigan State Senate)", "Legislative districts (Michigan State House of Representatives)"]
 app_ui = ui.page_fluid(
     ui.HTML("<hr> <h1>Maps</h1>"),
     output_widget("map"),
@@ -147,7 +147,7 @@ app_ui = ui.page_fluid(
 
     ui.HTML("<hr> <h1>Tables</h1>"),
     ui.input_selectize("county", "Select a county", sorted(list(mhvillage_df['County'].unique())), ),
-    ui.input_selectize("datasource", "Select a source", choices=['MHVillage', 'Lara'], ),
+    ui.input_selectize("datasource", "Select a source", choices=['MHVillage', 'LARA'], ),
     ui.output_table("site_list"),
     
 )
@@ -163,7 +163,7 @@ def server(input, output, session):
                      center=[41.84343571548758,-84.36155640717737], 
                      zoom=5)
         markerorcircle = False
-        if 'Marker' in layerlist:
+        if "Marker (name, address, # sites, source)" in layerlist:
             build_marker_layer()
             marker_cluster = L.MarkerCluster(
                 name='location markers',
@@ -171,16 +171,16 @@ def server(input, output, session):
                 )
             the_map.add_layer(marker_cluster)
             markerorcircle = True
-        if 'Circle' in layerlist:
+        if "Circle (location only)" in layerlist:
             if not markerorcircle:
                 build_marker_layer()
             layergroup = L.LayerGroup(name = 'location circles',layers=circlelist)
             the_map.add_layer(layergroup)
             markerorcircle = True
-        if 'Legislative districts (Upper house)' in layerlist:
+        if "Legislative districts (Michigan State Senate)" in layerlist:
             build_district_layers(upper = 1)
             the_map.add_layer(upper_layers[0])
-        if 'Legislative districts (Lower house)' in layerlist:
+        if "Legislative districts (Michigan State House of Representatives)" in layerlist:
             build_district_layers(upper = 0)
             the_map.add_layer(lower_layers[0])
         return the_map
