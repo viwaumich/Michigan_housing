@@ -1,13 +1,16 @@
 from shiny import *
 from shinywidgets import output_widget, render_widget
 import ipyleaflet as L
-
+import shapely
+from branca.colormap import linear
+import matplotlib.pyplot as plt
 import math
 #import shapely
 import pandas as pd
-#import geopandas as gpd
+import geopandas as gpd
 
-path2folder = r"Fill in the path to your data"
+path2folder = r"" # fill in the path to your folder here.
+assert len(path2folder) > 0
 
 mhvillage_df = pd.read_csv(path2folder + r"MHVillageAll_Dec7_dropna.csv")
 lara_df = pd.read_excel(path2folder + r"LARA_with_coord.xlsx")
@@ -15,8 +18,46 @@ lara_df = pd.read_excel(path2folder + r"LARA_with_coord.xlsx")
 
 circlelist = []
 mklist = []
+upper_layers = []
+lower_layers = []
+
+def extract_coordinates(df):
+    def rev(lst):
+        return [lst[1],lst[0]]
+    features = []
+    for i in range(len(df)):
+        if isinstance( df['geometry'].iloc[i], shapely.geometry.polygon.Polygon):
+            cr = [[rev(list(i)) for i in df['geometry'].iloc[i].exterior.coords]]
+        else:
+            cr = [[rev(list(i)) for i in poly.exterior.coords] for poly in list(df['geometry'].iloc[i].geoms)]
+        features.append(cr)
+    return features
 
 
+def build_district_layers(upper=0):
+    if upper == 1:
+        if len(upper_layers) > 0:
+            return
+        tracts_shapefile = gpd.read_file(path2folder+"/cb_2022_26_sldu_500k.shp")
+        color = 'green'
+    else:
+        if len(lower_layers) > 0:
+            return
+        tracts_shapefile = gpd.read_file(path2folder+"/cb_2022_26_sldl_500k.shp")
+        color = 'purple'
+    layerk = L.Polygon(
+        locations = extract_coordinates(tracts_shapefile),
+        color=color,
+        fill_color = color,
+        dash_array='2, 3',    # Set the dash pattern (5 pixels filled, 10 pixels empty)
+        weight=1, 
+    )
+    if upper == 1:
+        upper_layers.append(layerk)
+    else:
+        lower_layers.append(layerk)
+    return
+    
 
 def build_marker_layer():
     if len(circlelist) >0  and len(mklist)>0:
@@ -55,6 +96,33 @@ def build_marker_layer():
         mklist.append(markeri)   
     return 
 
+def build_infographics1():
+    def modify(string):
+        return string[0] + string[1:].lower()
+    # Calculating the total number of sites for each unique name
+    total_sites_by_name = lara_df[['County',"Total_#_Sites"]].dropna().groupby('County').sum()
+    total_sites_by_name = total_sites_by_name.sort_values(by="Total_#_Sites",ascending=False)
+    totnum = -1
+    plt.clf()
+    plt.close()    
+    plt.bar(range(len(total_sites_by_name))[:totnum], total_sites_by_name['Total_#_Sites'][:totnum])
+    plt.xticks(range(len(total_sites_by_name))[:totnum], [modify(na) for na in total_sites_by_name.index[:totnum]], fontsize=4, rotation=60)
+    plt.ylabel('Total Number of Sites')
+    plt.title('Total number of sites in each county (LARA)')
+    return
+
+def build_infographics2():
+    total_sites_by_name = mhvillage_df[['County',"Average_rent"]].dropna().groupby('County').mean()
+    total_sites_by_name = total_sites_by_name.sort_values(by="Average_rent",ascending=False)
+    totnum = -1
+    plt.clf()
+    plt.close()    
+    plt.bar(range(len(total_sites_by_name))[:totnum], total_sites_by_name['Average_rent'][:totnum])
+    
+    plt.xticks(range(len(total_sites_by_name))[:totnum], total_sites_by_name.index[:totnum], fontsize=4, rotation=60)
+    plt.ylabel('Average rent')
+    plt.title('Average rent in each county (MHVillage)')
+    return
 
 basemaps = {
   "OpenStreetMap": L.basemaps.OpenStreetMap.Mapnik,
@@ -63,15 +131,23 @@ basemaps = {
   "NatGeoWorldMap": L.basemaps.Esri.NatGeoWorldMap
 }
 
-layernames = ['Marker', "Circle"]
+layernames = ['Marker', "Circle","Legislative districts (Upper house)", "Legislative districts (Lower house)"]
 app_ui = ui.page_fluid(
+    ui.HTML("<hr> <h1>Maps</h1>"),
     output_widget("map"),
     ui.input_select(
         "basemap", "Choose a basemap",
         choices=list(basemaps.keys())
     ),
     ui.input_selectize("layers", "Layers to visualize", layernames, multiple=True),
+    
+    ui.HTML("<hr> <h1>Infographics</h1>"),
+    ui.output_plot("infographics1"),
+    ui.output_plot("infographics2"),
+
+    ui.HTML("<hr> <h1>Tables</h1>"),
     ui.input_selectize("county", "Select a county", sorted(list(mhvillage_df['County'].unique())), ),
+    ui.input_selectize("datasource", "Select a source", choices=['MHVillage', 'Lara'], ),
     ui.output_table("site_list"),
     
 )
@@ -101,12 +177,29 @@ def server(input, output, session):
             layergroup = L.LayerGroup(name = 'location circles',layers=circlelist)
             the_map.add_layer(layergroup)
             markerorcircle = True
+        if 'Legislative districts (Upper house)' in layerlist:
+            build_district_layers(upper = 1)
+            the_map.add_layer(upper_layers[0])
+        if 'Legislative districts (Lower house)' in layerlist:
+            build_district_layers(upper = 0)
+            the_map.add_layer(lower_layers[0])
         return the_map
     
     @output
+    @render.plot
+    def infographics1():
+        build_infographics1()
+
+    @output
+    @render.plot
+    def infographics2():
+        build_infographics2()
+     
+    @output
     @render.table
     def site_list():
-        return (mhvillage_df[mhvillage_df['County'] == input.county()][['Name','Sites','FullstreetAddress']]).sort_values('Name')
-
-
+        if input.datasource() == 'MHVillage':
+            return (mhvillage_df[mhvillage_df['County'] == input.county()][['Name','Sites','FullstreetAddress']]).sort_values('Name')
+        else:
+            return lara_df[lara_df['County'] == input.county().upper()[1:-1]][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Owner / Community_Name')
 app = App(app_ui, server)
