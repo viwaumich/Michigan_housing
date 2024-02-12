@@ -9,7 +9,7 @@ import math
 import pandas as pd
 import geopandas as gpd
 
-path2folder = r"" # fill in the path to your folder here.
+path2folder = r"./data/" # fill in the path to your folder here.
 assert len(path2folder) > 0
 
 mhvillage_df = pd.read_csv(path2folder + r"MHVillageAll_Dec7_dropna.csv")
