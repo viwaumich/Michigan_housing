@@ -1,0 +1,12 @@
+{
+    "https://api.shinyapps.io": {
+        "server_url": "https://api.shinyapps.io",
+        "filename": "/Users/hkt/Michigan_housing",
+        "app_url": "https://hessakh.shinyapps.io/michigan_housing/",
+        "app_id": 11984358,
+        "app_guid": null,
+        "title": "Michigan_housing",
+        "app_mode": "python-shiny",
+        "app_store_version": 1
+    }
+}
