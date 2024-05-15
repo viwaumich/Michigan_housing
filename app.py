@@ -4,6 +4,7 @@ from shinywidgets import output_widget, render_widget
 #from shiny.express import render
 #from ipywidgets import Label
 import ipyleaflet as L
+from ipywidgets import Layout
 from ipyleaflet import GeoJSON, LayersControl, WidgetControl
 import pathlib
 from pathlib import Path
@@ -58,7 +59,7 @@ mhvillage_df = pd.read_csv(Path(__file__).parent / "data/MHVillageDec7_Legislati
 mhvillage_df['Sites'] = pd.to_numeric(mhvillage_df['Sites'], downcast='integer')
 lara_df = pd.read_csv(Path(__file__).parent / "data/LARA_with_coord_and_legislative_district.csv")
 lara_df['County'] = lara_df['County'].str.title()
-lara_df['House districts'] = pd.to_numeric(lara_df['House districts'], downcast='integer')
+
 
 # Path to your legislative districts GeoJSON file
 house_districts_geojson_path = r"./data/" + r"Michigan_State_House_Districts_2021.json"
@@ -131,7 +132,7 @@ def build_marker_layer():
         lon = float(mhvillage_df['Longitude'].iloc[ind])
         lat = float(mhvillage_df['Latitude'].iloc[ind])
 
-        if pd.isna(lara_df['House districts'].iloc[ind]) or pd.isna(lara_df['Senate'].iloc[ind]):
+        if pd.isna(lara_df['House districts'].iloc[ind]) or pd.isna(lara_df['Senate districts'].iloc[ind]):
             house = "missing"
             senate = "missing"
         else:
@@ -165,7 +166,7 @@ def build_marker_layer():
         house = "missing"
         senate = "missing"
 
-        if pd.isna(lara_df['House districts'].iloc[ind]) or pd.isna(lara_df['Senate'].iloc[ind]):
+        if pd.isna(lara_df['House districts'].iloc[ind]) or pd.isna(lara_df['Senate districts'].iloc[ind]):
             house = "missing"
             senate = "missing"
         else:
@@ -221,7 +222,7 @@ def build_infographics2():
     county_counts = df_clean['County'].value_counts()
     total_sites_by_name_count = pd.concat([total_sites_by_name,county_counts], axis=1)
     total_sites_by_name_count_20 = total_sites_by_name_count.sort_values(by="count",ascending=False)
-    total_sites_by_name_count_20 = total_sites_by_name_count_20[:20].sort_values(by="Average_rent",ascending=True)
+    total_sites_by_name_count_20 = total_sites_by_name_count_20[:20].sort_values(by="Average_rent",ascending=False)
     totnum = -1
 
     county = total_sites_by_name_count_20[:totnum].index
@@ -262,22 +263,26 @@ app_ui = ui.page_fluid(
         <a href="https://informs.engin.umich.edu/" target="_blank">INFORMS at the University of Michigan</a> 
         </h2>
     """),
-    output_widget("map"),
+    output_widget("map", width="auto", height="410px"),
     ui.input_select(
-        "basemap", "Choose a basemap",
+        "basemap", "Choose a basemap:",
         choices=list(basemaps.keys())
     ),
-    ui.input_selectize("layers", "Layers to visualize", layernames, multiple=True),
-    
+    ui.input_selectize("layers", "Layers to visualize:", layernames, multiple=True),
+    ui.HTML("""
+        <h2 style="text-align: left; margin-bottom: 10px; 
+        font-size: 16px; ">Markers and circles show the location of all MHC's reported by LARA and MHVillage, hover to check the source. Note that some MHC's will be reported by both.</h2>
+    """),
     ui.HTML("<hr> <h1>Infographics</h1>"),
     ui.output_plot("infographics1"),
     ui.output_plot("infographics2"),
 
     ui.HTML("<hr> <h1>Tables</h1>"),
-    ui.input_selectize("main_category", "Select a geographic boundary", choices=geographic_regions),
+
+    ui.input_selectize("main_category", "Select a geographic boundary:", choices=geographic_regions),
     ui.output_ui("sub_category_ui"),
 
-    ui.input_selectize("datasource", "Select a source", choices=['MHVillage', 'LARA'], ),
+    ui.input_selectize("datasource", "Select a source:", choices=[ 'LARA', 'MHVillage'], ),
     ui.output_table("site_list"),
     #ui.tags.div(ui.output_html("district_map"))
     ui.HTML("""
@@ -306,7 +311,11 @@ def server(input, output, session):
         if main_category and df_name == 'MHVillage':
             return mhvillage_df[main_category].dropna().tolist()
         elif main_category :
-             return lara_df[main_category].dropna().tolist()
+            if main_category == "House districts" or main_category == "Senate districts":
+                return lara_df[main_category].dropna().astype(int).unique().tolist()
+            else:
+                return lara_df[main_category].dropna().unique().tolist()
+
         return []
 
     # Use render functions to create UI elements, output_text_verbatim is used here for simplicity to show the results
@@ -315,7 +324,8 @@ def server(input, output, session):
     def sub_category_ui():
         options = sub_category_options()
         options.sort()
-        return ui.input_select("sub_category", "Select:", options)
+        return ui.input_select("sub_category", "Select: (Note That only districts/counties with MHC data will appear in the drop down list.)", 
+            options)
      
     @output
     @render_widget
@@ -324,9 +334,11 @@ def server(input, output, session):
         layerlist = input.layers()
 
         the_map = L.Map(basemap=basemap, 
-                     center=[41.84343571548758,-84.36155640717737], 
-                     zoom=5)
+                     center=[44.44343571548758,-84.36155640717737], 
+                     zoom=6,  layout=Layout(width="100%", height="100%"))
         markerorcircle = False
+
+
         if "Marker (name, address, # sites, source)" in layerlist:
             build_marker_layer()
             marker_cluster = L.MarkerCluster(
@@ -369,23 +381,18 @@ def server(input, output, session):
     def site_list():
         if input.datasource() == 'MHVillage':
             if input.main_category() == 'County':
-                return (mhvillage_df[mhvillage_df['County'] == input.sub_category()][['Name','Sites','FullstreetAddress']]).sort_values('Sites', ascending = False)
+                return (mhvillage_df[mhvillage_df['County'] == input.sub_category()][['Name','Sites','FullstreetAddress']]).dropna().astype({'Sites': int}).sort_values('Sites', ascending = False)
             else:
-                return (mhvillage_df[mhvillage_df[input.main_category()] == int(float(input.sub_category()))][['Name','Sites','FullstreetAddress']]).sort_values('Sites', ascending = False)
+                results = mhvillage_df[mhvillage_df[input.main_category()] == input.sub_category()][['Name', 'Sites', 'FullstreetAddress']].astype({'Sites': int})
+                #return results.sort_values('Sites', ascending=False)
+                return (mhvillage_df[mhvillage_df[input.main_category()] == int(float(input.sub_category()))][['Name','Sites','FullstreetAddress']]).astype({'Sites': int}).sort_values('Sites', ascending = False)
         else:
             if input.main_category() == 'County':
-                return lara_df[lara_df[input.main_category()] == input.sub_category()][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Owner / Community_Name',  ascending = False)
+                return lara_df[lara_df[input.main_category()] == input.sub_category()][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Total_#_Sites',  ascending = False)
             else:
-                return lara_df[lara_df[input.main_category()] == int(float(input.sub_category()))][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Total_#_Sites',  ascending = False)
+                house_district = int(float(input.sub_category()))  # Ensure the sub_category is converted to an integer
+                return lara_df[lara_df[input.main_category()] == house_district][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Total_#_Sites',  ascending = False)
 
-
-    @output
-    @render.table
-    def site_list2():
-        if input.datasource() == 'MHVillage':
-            return (mhvillage_df[mhvillage_df['House districts'] == int(float(input.house()))][['Name','Sites','FullstreetAddress']]).sort_values('Name')
-        else:
-            return lara_df[lara_df['House districts'] == int(float(input.house()[1:-1]))][['Owner / Community_Name','Total_#_Sites','Location_Address','Senate']].sort_values('Total_#_Sites')
 
     @render.code
     def info():
