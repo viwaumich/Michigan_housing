@@ -1,23 +1,22 @@
 from shiny import *
 from shiny import reactive
 from shinywidgets import output_widget, render_widget
-from shiny.express import render
+#from shiny.express import render
 #from ipywidgets import Label
 import ipyleaflet as L
 from ipyleaflet import GeoJSON, LayersControl, WidgetControl
-# import shapely
-# from shapely.geometry import Point
-#import matplotlib.pyplot as plt
+import pathlib
+from pathlib import Path
+import matplotlib.pyplot as plt
 import seaborn as sns
-#import math
-#import json
-import geojson
+import json
 import pandas as pd
 import geopandas as gpd
 #from geopy.geocoders import Nominatim
 import numpy as np
 
 
+here = pathlib.Path(__file__)
 
 # Step 1: Geocoding the address using OpenStreetMap's Nominatim
 def geocode_address(address):
@@ -52,15 +51,18 @@ def check_legislative_district(lat, lng, districts_geojson):
 
 
 
-path2folder = r"./data/" # fill in the path to your folder here.
-assert len(path2folder) > 0
+# path2folder = r"./data/" # fill in the path to your folder here.
+# assert len(path2folder) > 0
 
-mhvillage_df = pd.read_csv(path2folder + r"MHVillageDec7_Legislative.csv")
-lara_df = pd.read_csv(path2folder + r"LARA_with_coord_and_legislative_district.csv")
+mhvillage_df = pd.read_csv(Path(__file__).parent / "data/MHVillageDec7_Legislative.csv")
+mhvillage_df['Sites'] = pd.to_numeric(mhvillage_df['Sites'], downcast='integer')
+lara_df = pd.read_csv(Path(__file__).parent / "data/LARA_with_coord_and_legislative_district.csv")
+lara_df['County'] = lara_df['County'].str.title()
+lara_df['House districts'] = pd.to_numeric(lara_df['House districts'], downcast='integer')
 
 # Path to your legislative districts GeoJSON file
-house_districts_geojson_path = r"./data/" + r"Michigan_State_House_Districts_2021.geojson"
-senate_districts_geojson_path = r"./data/" + r"Michigan_State_Senate_Districts_2021.geojson"
+house_districts_geojson_path = r"./data/" + r"Michigan_State_House_Districts_2021.json"
+senate_districts_geojson_path = r"./data/" + r"Michigan_State_Senate_Districts_2021.json"
 #tracts_shapefile = gpd.read_file(path2folder+r"tl_2019_26_tract.shp")
 
 circlelist = []
@@ -85,57 +87,22 @@ labels_df =  pd.DataFrame(range(1, 51), columns=['Numbers'])
 
 
 
-def build_district_layersـalpha(upper=0):
-    if upper == 1:
-        if len(upper_layers) > 0:
-            return
-        tracts_shapefile = gpd.read_file(path2folder+"/cb_2022_26_sldu_500k.shp")
-        color = 'green'
-    else:
-        if len(lower_layers) > 0:
-            return
-        tracts_shapefile = gpd.read_file(path2folder+"/cb_2022_26_sldl_500k.shp")
-        color = 'purple'
-    layerk = L.Polygon(
-        locations = extract_coordinates(tracts_shapefile),
-        color=color,
-        fill_color = color,
-        dash_array='2, 3',    # Set the dash pattern (5 pixels filled, 10 pixels empty)
-        weight=2, 
-        hover_style={
-                'color': 'orange', 
-                'fill_color': 'orange', 
-                'weight': 3
-            }
-    )
-    if upper == 1:
-        upper_layers.append(layerk)
-    else:
-        lower_layers.append(layerk)
-    return
-
-
 def build_district_layers(upper=0):
     if upper == 1:
         if len(upper_layers) > 0:
             return
-        tracts_shapefile = gpd.read_file(path2folder+"/cb_2022_26_sldu_500k.shp")
+        #tracts_shapefile = gpd.read_file(path2folder+"/cb_2022_26_sldu_500k.shp")
         color = 'green'
         geojson_path = senate_districts_geojson_path
-        with open(geojson_path, 'r') as f:
-            michigan_districts_data = geojson.load(f)
-        #michigan_districts_data = pd.read_json(geojson_path)
-        #print(michigan_districts_data)
+        with open(here.parent / geojson_path, 'r') as f:
+            michigan_districts_data = json.load(f)
     else:
         if len(lower_layers) > 0:
             return
-        tracts_shapefile = gpd.read_file(path2folder+"/cb_2022_26_sldl_500k.shp")
-        sLength = len(tracts_shapefile['geometry'])
-        tracts_shapefile['labels'] = pd.Series(np.array(range(sLength))+1)
         color = 'purple'
         geojson_path = house_districts_geojson_path
-        with open(geojson_path, 'r') as f:
-            michigan_districts_data = geojson.load(f)
+        with open(here.parent / geojson_path, 'r') as f:
+            michigan_districts_data = json.load(f)
     layerk =  L.GeoJSON(
             data=michigan_districts_data,
             name='Michigan House Legislative Districts',
@@ -149,18 +116,6 @@ def build_district_layers(upper=0):
                 'weight': 3
             }
         )
-
-        # Add mouseover event
-    #layerk.on_hover(lambda feature, **kwargs: update_tooltip(feature['properties'], **kwargs))
-
-
-    # L.Polygon(
-    #     locations = extract_coordinates(tracts_shapefile),
-    #     color=color,
-    #     fill_color = color,
-    #     dash_array='2, 3',    # Set the dash pattern (5 pixels filled, 10 pixels empty)
-    #     weight=2, 
-    # )
     if upper == 1:
         upper_layers.append(layerk)
     else:
@@ -176,21 +131,17 @@ def build_marker_layer():
         lon = float(mhvillage_df['Longitude'].iloc[ind])
         lat = float(mhvillage_df['Latitude'].iloc[ind])
 
-        if pd.isna(lara_df['House'].iloc[ind]) or pd.isna(lara_df['Senate'].iloc[ind]):
+        if pd.isna(lara_df['House districts'].iloc[ind]) or pd.isna(lara_df['Senate'].iloc[ind]):
             house = "missing"
             senate = "missing"
         else:
-            house = round(lara_df['House'].iloc[ind])
-            senate = round(lara_df['Senate'].iloc[ind])
+            house = round(lara_df['House districts'].iloc[ind])
+            senate = round(lara_df['Senate districts'].iloc[ind])
 
         if pd.isna(mhvillage_df['Sites'].iloc[ind]):
             mhsites = "missing"
         else:
             mhsites = round(mhvillage_df['Sites'].iloc[ind])
-        #if lat and lon:
-            # Check the legislative district
-            #district_house = check_legislative_district(lat, lon, house_districts_geojson_path)
-            #district_senate = check_legislative_district(lat, lon, senate_districts_geojson_path)
 
         markeri = L.Marker(
             location=(lat,lon),
@@ -214,12 +165,12 @@ def build_marker_layer():
         house = "missing"
         senate = "missing"
 
-        if pd.isna(lara_df['House'].iloc[ind]) or pd.isna(lara_df['Senate'].iloc[ind]):
+        if pd.isna(lara_df['House districts'].iloc[ind]) or pd.isna(lara_df['Senate'].iloc[ind]):
             house = "missing"
             senate = "missing"
         else:
-            house = round(lara_df['House'].iloc[ind])
-            senate = round(lara_df['Senate'].iloc[ind])
+            house = round(lara_df['House districts'].iloc[ind])
+            senate = round(lara_df['Senate districts'].iloc[ind])
 
         if pd.isna(lara_df['Total_#_Sites'].iloc[ind]):
             larasites = "missing"
@@ -257,10 +208,9 @@ def build_infographics1():
     totnum = 20
     total_sites_by_name = total_sites_by_name.iloc[:totnum,:]
     sns.set_color_codes("pastel")
-    sns.barplot(x="Total_#_Sites", y="County", data=total_sites_by_name,
-                label="Total Number of Sites", color="b")
-    #plt.ylabel('Total Number of Sites')
-    #plt.title('Total number of sites in each county (LARA)')
+    ax = sns.barplot(x="Total_#_Sites", y="County", data=total_sites_by_name,
+                color="b")
+    ax.set(xlabel="Total Number of Sites", title = 'Top 20 Michigan Counties by number of manufactured home sites (LARA)')
     return
 
 def build_infographics2():
@@ -280,55 +230,38 @@ def build_infographics2():
 
     ax = sns.barplot(x="Average_rent", y="County", data=total_sites_by_name_count_20,
                 label="Average rent", color="b")
+    ax.set(xlabel='Average rent', title = "Average rent by county (MHVillage)")
     count0 = total_sites_by_name_count_20['count']
 
     ax.bar_label(ax.containers[0], labels=[f'{c:.0f}' for c in count0],
               label_type = 'center', color='w', fontsize=10)
     return
 
-def build_infographics1_test():
-        
-    # Initialize the matplotlib figure
-    f, ax = plt.subplots(figsize=(6, 15))
-
-    # Load the example car crash dataset
-    crashes = sns.load_dataset("car_crashes").sort_values("total", ascending=False)
-    print(crashes)
-    # Plot the total crashes
-    sns.set_color_codes("pastel")
-    sns.barplot(x="total", y="abbrev", data=crashes,
-                label="Total", color="b")
-
-    # Plot the crashes where alcohol was involved
-    sns.set_color_codes("muted")
-    sns.barplot(x="alcohol", y="abbrev", data=crashes,
-                label="Alcohol-involved", color="b")
-
-    # Add a legend and informative axis label
-    ax.legend(ncol=2, loc="lower right", frameon=True)
-    ax.set(xlim=(0, 24), ylabel="",
-           xlabel="Automobile collisions per billion miles")
-    sns.despine(left=True, bottom=True)
-    return
-
 
 basemaps = {
   "OpenStreetMap": L.basemaps.OpenStreetMap.Mapnik,
-  "Satellite": L.basemaps.Gaode.Satellite,
-  "WorldStreetMap": L.basemaps.Esri.WorldStreetMap,
-  "NatGeoWorldMap": L.basemaps.Esri.NatGeoWorldMap
+  "Satellite": L.basemaps.Gaode.Satellite
 }
 
 options = list([])
 
 
 geographic_regions = [
-'County','House','Senate'
+'County','House districts','Senate districts'
 ]
+
 
 layernames = ["Marker (name, address, # sites, source)", "Circle (location only)", "Legislative districts (Michigan State Senate)", "Legislative districts (Michigan State House of Representatives)"]
 app_ui = ui.page_fluid(
-    ui.HTML("<hr> <h1>Maps</h1>"),
+    ui.HTML("""
+        <hr> 
+        <h1 style="text-align: center; margin-bottom: 10px;">Manufactured Housing Communities in Michigan</h1>
+        <h2 style="text-align: center; margin-bottom: 40px; 
+        font-size: 18px; ">Project by <a href="https://www.mhaction.org" 
+        target="_blank">MH Action</a> and 
+        <a href="https://informs.engin.umich.edu/" target="_blank">INFORMS at the University of Michigan</a> 
+        </h2>
+    """),
     output_widget("map"),
     ui.input_select(
         "basemap", "Choose a basemap",
@@ -341,14 +274,27 @@ app_ui = ui.page_fluid(
     ui.output_plot("infographics2"),
 
     ui.HTML("<hr> <h1>Tables</h1>"),
-    ui.input_selectize("main_category", "Select a geographic bounary", choices=geographic_regions),
+    ui.input_selectize("main_category", "Select a geographic boundary", choices=geographic_regions),
     ui.output_ui("sub_category_ui"),
 
     ui.input_selectize("datasource", "Select a source", choices=['MHVillage', 'LARA'], ),
     ui.output_table("site_list"),
     #ui.tags.div(ui.output_html("district_map"))
+    ui.HTML("""
+        <hr> 
+        <h1 style="text-align: left; margin-bottom: 10px;">Credits:</h1>
+        <h2 style="text-align: left; margin-bottom: 10px; 
+        font-size: 18px; ">Project lead: Hessa Al-Thani,
+        MH Action contact: Paul Terranova with support from Deb Campbell,
+        Website development: Naichen Shi, 
+        Data scraping and collection: Bingqing Xiang.</h2>
+    """),
+     #       <h2 style="text-align: left; margin-bottom: 10px;font-size: 18px; 
+      #  Source code can be found on
+       # <a href="https://github.com/soundsinteresting/Michigan_housing/" target="_blank">Git</a> </h2>
     
 )
+
 
 
 def server(input, output, session):
@@ -408,15 +354,6 @@ def server(input, output, session):
 # # Define server logic
 # def server(input, output, session):
     
-#     @output
-#     @render.html
-#     def district_map():
-#         map_html = create_map_html(gdf)
-#         # Embed the map HTML in an iframe
-#         iframe = tags.iframe(style="width:100%;height:500px;border:none;", srcdoc=map_html)
-#         return iframe
-
-    
     @output
     @render.plot
     def infographics1():
@@ -439,20 +376,21 @@ def server(input, output, session):
             if input.main_category() == 'County':
                 return lara_df[lara_df[input.main_category()] == input.sub_category()][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Owner / Community_Name',  ascending = False)
             else:
-                return lara_df[lara_df[input.main_category()] == int(float(input.sub_category()))][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Owner / Community_Name',  ascending = False)
+                return lara_df[lara_df[input.main_category()] == int(float(input.sub_category()))][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Total_#_Sites',  ascending = False)
 
 
     @output
     @render.table
     def site_list2():
         if input.datasource() == 'MHVillage':
-            return (mhvillage_df[mhvillage_df['House'] == int(float(input.house()))][['Name','Sites','FullstreetAddress']]).sort_values('Name')
+            return (mhvillage_df[mhvillage_df['House districts'] == int(float(input.house()))][['Name','Sites','FullstreetAddress']]).sort_values('Name')
         else:
-            return lara_df[lara_df['House'] == input.house().upper()[1:-1]][['Owner / Community_Name','Total_#_Sites','Location_Address','Senate']].sort_values('Owner / Community_Name')
+            return lara_df[lara_df['House districts'] == int(float(input.house()[1:-1]))][['Owner / Community_Name','Total_#_Sites','Location_Address','Senate']].sort_values('Total_#_Sites')
 
     @render.code
     def info():
         return str([type(hist.widget), type(hist.value)])
 
 #removed to run on shiny.io
-app = App(app_ui, server)
+app = App(app_ui, server, debug = True)
+

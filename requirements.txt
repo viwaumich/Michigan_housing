@@ -1,6 +1,5 @@
 shiny
 shinywidgets
-geojson
 pandas
 geopandas
 numpy
