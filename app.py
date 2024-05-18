@@ -55,9 +55,9 @@ def check_legislative_district(lat, lng, districts_geojson):
 # path2folder = r"./data/" # fill in the path to your folder here.
 # assert len(path2folder) > 0
 
-mhvillage_df = pd.read_csv(Path(__file__).parent / "data/MHVillageDec7_Legislative.csv")
+mhvillage_df = pd.read_csv(Path(__file__).parent / "data/MHVillageDec7_Legislative1.csv")
 mhvillage_df['Sites'] = pd.to_numeric(mhvillage_df['Sites'], downcast='integer')
-lara_df = pd.read_csv(Path(__file__).parent / "data/LARA_with_coord_and_legislative_district.csv")
+lara_df = pd.read_csv(Path(__file__).parent / "data/LARA_with_coord_and_legislativedistrict1.csv")
 lara_df['County'] = lara_df['County'].str.title()
 
 
@@ -67,25 +67,12 @@ senate_districts_geojson_path = r"./data/" + r"Michigan_State_Senate_Districts_2
 #tracts_shapefile = gpd.read_file(path2folder+r"tl_2019_26_tract.shp")
 
 circlelist = []
+circleMHlist = []
 mklist = []
 upper_layers = []
 lower_layers = []
 
 labels_df =  pd.DataFrame(range(1, 51), columns=['Numbers'])
-
-
-# def extract_coordinates(df):
-#     def rev(lst):
-#         return [lst[1],lst[0]]
-#     features = []
-#     for i in range(len(df)):
-#         if isinstance( df['geometry'].iloc[i], shapely.geometry.polygon.Polygon):
-#             cr = [[rev(list(i)) for i in df['geometry'].iloc[i].exterior.coords]]
-#         else:
-#             cr = [[rev(list(i)) for i in poly.exterior.coords] for poly in list(df['geometry'].iloc[i].geoms)]
-#         features.append(cr)
-#     return features
-
 
 
 def build_district_layers(upper=0):
@@ -124,54 +111,60 @@ def build_district_layers(upper=0):
     return
     
 
-def build_marker_layer():
+def build_marker_layer(LARA_C, MH_C):
     if len(circlelist) >0  and len(mklist)>0:
         return
     leng = 0
     for ind in range(len(mhvillage_df)):
-        lon = float(mhvillage_df['Longitude'].iloc[ind])
-        lat = float(mhvillage_df['Latitude'].iloc[ind])
+        lon = float(mhvillage_df['longitude'].iloc[ind])
+        lat = float(mhvillage_df['latitude'].iloc[ind])
 
-        if pd.isna(lara_df['House districts'].iloc[ind]) or pd.isna(lara_df['Senate districts'].iloc[ind]):
-            house = "missing"
-            senate = "missing"
+########Handle missing entries
+        if pd.isna(lara_df['House district'].iloc[ind]) or pd.isna(lara_df['Senate district'].iloc[ind]):
+            house_lara = "missing"
+            senate_lara = "missing"
         else:
-            house = round(lara_df['House districts'].iloc[ind])
-            senate = round(lara_df['Senate districts'].iloc[ind])
+            house_lara = round(lara_df['House district'].iloc[ind])
+            senate_lara = round(lara_df['Senate district'].iloc[ind])
+        if pd.isna(mhvillage_df['House district'].iloc[ind]) or pd.isna(mhvillage_df['Senate district'].iloc[ind]):
+            house_mh = "missing"
+            senate_mh = "missing"
+        else:
+            house_mh = round(mhvillage_df['House district'].iloc[ind])
+            senate_mh = round(mhvillage_df['Senate district'].iloc[ind])
 
         if pd.isna(mhvillage_df['Sites'].iloc[ind]):
             mhsites = "missing"
         else:
             mhsites = round(mhvillage_df['Sites'].iloc[ind])
-
+########Make markers
         markeri = L.Marker(
             location=(lat,lon),
             draggable=False,
             title=str(mhvillage_df['Name'].iloc[ind])+
             ' , number of sites: '+str(mhsites)+
             ' , average rent: '+str(mhvillage_df['Average_rent'].iloc[ind])+
-            ' , House district: '+str(house)+
-            ' , Senate district: '+str(senate)+
+            ' , House district: '+str(house_mh)+
+            ' , Senate district: '+str(senate_mh)+
             ' , url: %s'%str(mhvillage_df['Url'].iloc[ind]) +
             ' , MHVillage')
-        circlei = L.Circle(location=(lat,lon), radius=1, color="blue", fill_color="blue")
-
-        circlelist.append(circlei)
+        circleMHi = L.Circle(location=(lat,lon), radius=1, color="orange", fill_color= "orange")
+        circlelist.append(circleMHi)
         mklist.append(markeri) 
 
 
     for ind in range(len(lara_df)):
         lon = float(lara_df['longitude'].iloc[ind])
         lat = float(lara_df['latitude'].iloc[ind])
-        house = "missing"
-        senate = "missing"
+        house_lara = "missing"
+        senate_lara = "missing"
 
-        if pd.isna(lara_df['House districts'].iloc[ind]) or pd.isna(lara_df['Senate districts'].iloc[ind]):
-            house = "missing"
-            senate = "missing"
+        if pd.isna(lara_df['House district'].iloc[ind]) or pd.isna(lara_df['Senate district'].iloc[ind]):
+            house_lara = "missing"
+            senate_lara = "missing"
         else:
-            house = round(lara_df['House districts'].iloc[ind])
-            senate = round(lara_df['Senate districts'].iloc[ind])
+            house_lara = int(lara_df['House district'].iloc[ind])
+            senate_lara = int(lara_df['Senate district'].iloc[ind])
 
         if pd.isna(lara_df['Total_#_Sites'].iloc[ind]):
             larasites = "missing"
@@ -186,16 +179,17 @@ def build_marker_layer():
                 draggable=False,
                 title=str(lara_df['Owner / Community_Name'].iloc[ind])+
                 ' , number of sites: '+str(round(lara_df['Total_#_Sites'].iloc[ind]))+
-                ' , House district: '+ str(house)+
-                ' , Senate district: '+ str(senate)+
+                ' , House district: '+ str(house_lara)+
+                ' , Senate district: '+ str(senate_lara)+
                 ', LARA')
             circlei = L.Circle(location=(lat,lon), radius=1, color="blue", fill_color="blue")
+            circlelist.append(circlei)
 
         except:
             #print(lon,lat)
             continue
 
-        circlelist.append(circlei)
+        
         mklist.append(markeri)   
     return 
 
@@ -248,11 +242,14 @@ options = list([])
 
 
 geographic_regions = [
-'County','House districts','Senate districts'
+'County','House district','Senate district'
 ]
 
 
-layernames = ["Marker (name, address, # sites, source)", "Circle (location only)", "Legislative districts (Michigan State Senate)", "Legislative districts (Michigan State House of Representatives)"]
+layernames = ["Marker (name, address, # sites, source)", 
+    "Circle (location only)", #"Circle (MHVillage location only)",
+    "Legislative districts (Michigan State Senate)", 
+    "Legislative districts (Michigan State House of Representatives)"]
 app_ui = ui.page_fluid(
     ui.HTML("""
         <hr> 
@@ -264,18 +261,24 @@ app_ui = ui.page_fluid(
         </h2>
     """),
     output_widget("map", width="auto", height="410px"),
+        ui.HTML("""
+        <h2 style="text-align: left; margin-bottom: 10px; 
+        font-size: 16px; ">Blue circles are MHC's reported by LARA, orange circles are reported by MHVillage.</h2>
+    """),
     ui.input_select(
         "basemap", "Choose a basemap:",
         choices=list(basemaps.keys())
     ),
-    ui.input_selectize("layers", "Layers to visualize:", layernames, multiple=True),
-    ui.HTML("""
-        <h2 style="text-align: left; margin-bottom: 10px; 
-        font-size: 16px; ">Markers and circles show the location of all MHC's reported by LARA and MHVillage, hover to check the source. Note that some MHC's will be reported by both.</h2>
-    """),
+    ui.input_selectize("layers", "Layers to visualize:", 
+        layernames, multiple=True, selected="Circle (location only)"),
     ui.HTML("<hr> <h1>Infographics</h1>"),
     ui.output_plot("infographics1"),
     ui.output_plot("infographics2"),
+    ui.HTML("""
+        <h2 style="text-align: left; margin-bottom: 10px; 
+        font-size: 16px; ">(*) White numbers inside the bars signify number 
+        of MHC's included in the average, based on availability of data on MHVillage.</h2>
+    """),
 
     ui.HTML("<hr> <h1>Tables</h1>"),
 
@@ -289,9 +292,9 @@ app_ui = ui.page_fluid(
         <hr> 
         <h1 style="text-align: left; margin-bottom: 10px;">Credits:</h1>
         <h2 style="text-align: left; margin-bottom: 10px; 
-        font-size: 18px; ">Project lead: Hessa Al-Thani,
-        MH Action contact: Paul Terranova with support from Deb Campbell,
-        Website development: Naichen Shi, 
+        font-size: 18px; ">Project lead: Hessa Al-Thani, <br>
+        MH Action contact: Paul Terranova with support from Deb Campbell, <br>
+        Website development: Naichen Shi, <br>
         Data scraping and collection: Bingqing Xiang.</h2>
     """),
      #       <h2 style="text-align: left; margin-bottom: 10px;font-size: 18px; 
@@ -311,7 +314,7 @@ def server(input, output, session):
         if main_category and df_name == 'MHVillage':
             return mhvillage_df[main_category].dropna().tolist()
         elif main_category :
-            if main_category == "House districts" or main_category == "Senate districts":
+            if main_category == "House district" or main_category == "Senate district":
                 return lara_df[main_category].dropna().astype(int).unique().tolist()
             else:
                 return lara_df[main_category].dropna().unique().tolist()
@@ -340,7 +343,7 @@ def server(input, output, session):
 
 
         if "Marker (name, address, # sites, source)" in layerlist:
-            build_marker_layer()
+            build_marker_layer(LARA_C = 1,MH_C =1)
             marker_cluster = L.MarkerCluster(
                 name='location markers',
                 markers=tuple(mklist)
@@ -349,8 +352,14 @@ def server(input, output, session):
             markerorcircle = True
         if "Circle (location only)" in layerlist:
             if not markerorcircle:
-                build_marker_layer()
+                build_marker_layer(LARA_C = 1,MH_C =0)
             layergroup = L.LayerGroup(name = 'location circles',layers=circlelist)
+            the_map.add_layer(layergroup)
+            markerorcircle = True
+        if "Circle (MHVillage location only)" in layerlist:
+            if not markerorcircle:
+                build_marker_layer(LARA_C = 0,MH_C =1)
+            layergroup = L.LayerGroup(name = 'location circles MH',layers=circlelist)
             the_map.add_layer(layergroup)
             markerorcircle = True
         if "Legislative districts (Michigan State Senate)" in layerlist:

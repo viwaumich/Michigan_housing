@@ -6,14 +6,13 @@ from shapely.geometry import Point
 import re
 from regex_add import regex, regex1
 import geopy
-from geopy.geocoders import Nominatim
-from geopy.geocoders import GoogleV3
+from geopy.geocoders import Nominatim, GoogleV3
 
 
 # !!!!!!!!!! free but doesn't work as well as google API
 geolocator = Nominatim(user_agent="you're email")
 ##
-#geolocator = GoogleV3(api_key='you're API here')
+#geolocator = GoogleV3(api_key='')
 
 # two functions from medium article: 
 # link:https://towardsdatascience.com/transform-messy-address-into-clean-data-effortlessly-using-geopy-and-python-d3f726461225
@@ -34,6 +33,8 @@ def extract_lat_long(address):
 
 
 # add clean addresses
+path2folder = r"./data/" # fill in the path to your folder here.
+assert len(path2folder) > 0
 
 lara_df = pd.read_excel(path2folder + r"LARA_with_coord.xlsx")
 
@@ -60,4 +61,16 @@ final_lara = pd.concat([lara_df, lara_df_address['latitude'], lara_df_address['l
 final_lara.drop(columns = ['Longitude','Latitude'], inplace = True)
 
 final_lara.to_csv('data/LARA_with_all_coord.csv')
+
+## add MHVillage GPS
+mhvillage_df = pd.read_csv(path2folder + r"MHVillageAll_Dec7_dropna.csv")
+
+mhvillage_df['lat_long'] = mhvillage_df[['FullstreetAddress']].apply(lambda x: extract_lat_long(x['FullstreetAddress']) , axis =1)
+mhvillage_df['latitude'] = mhvillage_df.apply(lambda x: x['lat_long'][0] if x['lat_long'] != '' else '', axis =1)
+mhvillage_df['longitude'] = mhvillage_df.apply(lambda x: x['lat_long'][1] if x['lat_long'] != '' else '', axis =1)
+mhvillage_df.drop(columns = ['lat_long'], inplace = True)
+
+mhvillage_df.to_csv('data/mhvillage_dec7_googlecoord.csv')
+
+
 
