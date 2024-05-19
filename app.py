@@ -66,9 +66,11 @@ house_districts_geojson_path = r"./data/" + r"Michigan_State_House_Districts_202
 senate_districts_geojson_path = r"./data/" + r"Michigan_State_Senate_Districts_2021.json"
 #tracts_shapefile = gpd.read_file(path2folder+r"tl_2019_26_tract.shp")
 
-circlelist = []
-circleMHlist = []
-mklist = []
+circlelist_lara = []
+circlelist_mh = []
+#circleMHlist = []
+mklist_mh = []
+mklist_lara = []
 upper_layers = []
 lower_layers = []
 
@@ -111,86 +113,91 @@ def build_district_layers(upper=0):
     return
     
 
-def build_marker_layer(LARA_C, MH_C):
-    if len(circlelist) >0  and len(mklist)>0:
-        return
+def build_marker_layer(LARA_C):
+    #if len(circlelist) >0  and len(mklist)>0:
+    #    return
     leng = 0
-    for ind in range(len(mhvillage_df)):
-        lon = float(mhvillage_df['longitude'].iloc[ind])
-        lat = float(mhvillage_df['latitude'].iloc[ind])
+    if not LARA_C:
+        if len(circlelist_mh) >0  and len(mklist_mh)>0:
+            return
+        for ind in range(len(mhvillage_df)):
+            lon = float(mhvillage_df['longitude'].iloc[ind])
+            lat = float(mhvillage_df['latitude'].iloc[ind])
 
-########Handle missing entries
-        if pd.isna(lara_df['House district'].iloc[ind]) or pd.isna(lara_df['Senate district'].iloc[ind]):
-            house_lara = "missing"
-            senate_lara = "missing"
-        else:
-            house_lara = round(lara_df['House district'].iloc[ind])
-            senate_lara = round(lara_df['Senate district'].iloc[ind])
-        if pd.isna(mhvillage_df['House district'].iloc[ind]) or pd.isna(mhvillage_df['Senate district'].iloc[ind]):
-            house_mh = "missing"
-            senate_mh = "missing"
-        else:
-            house_mh = round(mhvillage_df['House district'].iloc[ind])
-            senate_mh = round(mhvillage_df['Senate district'].iloc[ind])
+    ########Handle missing entries
+            if pd.isna(lara_df['House district'].iloc[ind]) or pd.isna(lara_df['Senate district'].iloc[ind]):
+                house_lara = "missing"
+                senate_lara = "missing"
+            else:
+                house_lara = round(lara_df['House district'].iloc[ind])
+                senate_lara = round(lara_df['Senate district'].iloc[ind])
+            if pd.isna(mhvillage_df['House district'].iloc[ind]) or pd.isna(mhvillage_df['Senate district'].iloc[ind]):
+                house_mh = "missing"
+                senate_mh = "missing"
+            else:
+                house_mh = round(mhvillage_df['House district'].iloc[ind])
+                senate_mh = round(mhvillage_df['Senate district'].iloc[ind])
 
-        if pd.isna(mhvillage_df['Sites'].iloc[ind]):
-            mhsites = "missing"
-        else:
-            mhsites = round(mhvillage_df['Sites'].iloc[ind])
-########Make markers
-        markeri = L.Marker(
-            location=(lat,lon),
-            draggable=False,
-            title=str(mhvillage_df['Name'].iloc[ind])+
-            ' , number of sites: '+str(mhsites)+
-            ' , average rent: '+str(mhvillage_df['Average_rent'].iloc[ind])+
-            ' , House district: '+str(house_mh)+
-            ' , Senate district: '+str(senate_mh)+
-            ' , url: %s'%str(mhvillage_df['Url'].iloc[ind]) +
-            ' , MHVillage')
-        circleMHi = L.Circle(location=(lat,lon), radius=1, color="orange", fill_color= "orange")
-        circlelist.append(circleMHi)
-        mklist.append(markeri) 
-
-
-    for ind in range(len(lara_df)):
-        lon = float(lara_df['longitude'].iloc[ind])
-        lat = float(lara_df['latitude'].iloc[ind])
-        house_lara = "missing"
-        senate_lara = "missing"
-
-        if pd.isna(lara_df['House district'].iloc[ind]) or pd.isna(lara_df['Senate district'].iloc[ind]):
-            house_lara = "missing"
-            senate_lara = "missing"
-        else:
-            house_lara = int(lara_df['House district'].iloc[ind])
-            senate_lara = int(lara_df['Senate district'].iloc[ind])
-
-        if pd.isna(lara_df['Total_#_Sites'].iloc[ind]):
-            larasites = "missing"
-        else:
-            larasites = round(lara_df['Total_#_Sites'].iloc[ind])
-
-        if lon == 0 and lat == 0:
-            continue
-        try:
+            if pd.isna(mhvillage_df['Sites'].iloc[ind]):
+                mhsites = "missing"
+            else:
+                mhsites = round(mhvillage_df['Sites'].iloc[ind])
+    ########Make markers
             markeri = L.Marker(
                 location=(lat,lon),
                 draggable=False,
-                title=str(lara_df['Owner / Community_Name'].iloc[ind])+
-                ' , number of sites: '+str(round(lara_df['Total_#_Sites'].iloc[ind]))+
-                ' , House district: '+ str(house_lara)+
-                ' , Senate district: '+ str(senate_lara)+
-                ', LARA')
-            circlei = L.Circle(location=(lat,lon), radius=1, color="blue", fill_color="blue")
-            circlelist.append(circlei)
+                title=str(mhvillage_df['Name'].iloc[ind])+
+                ' , number of sites: '+str(mhsites)+
+                ' , average rent: '+str(mhvillage_df['Average_rent'].iloc[ind])+
+                ' , House district: '+str(house_mh)+
+                ' , Senate district: '+str(senate_mh)+
+                ' , url: %s'%str(mhvillage_df['Url'].iloc[ind]) +
+                ' , MHVillage')
+            circleMHi = L.Circle(location=(lat,lon), radius=1, color="orange", fill_color= "orange")
+            circlelist_mh.append(circleMHi)
+            mklist_mh.append(markeri) 
 
-        except:
-            #print(lon,lat)
-            continue
+    else:
+        if len(circlelist_lara) >0  and len(mklist_lara)>0:
+            return
+        for ind in range(len(lara_df)):
+            lon = float(lara_df['longitude'].iloc[ind])
+            lat = float(lara_df['latitude'].iloc[ind])
+            house_lara = "missing"
+            senate_lara = "missing"
 
-        
-        mklist.append(markeri)   
+            if pd.isna(lara_df['House district'].iloc[ind]) or pd.isna(lara_df['Senate district'].iloc[ind]):
+                house_lara = "missing"
+                senate_lara = "missing"
+            else:
+                house_lara = int(lara_df['House district'].iloc[ind])
+                senate_lara = int(lara_df['Senate district'].iloc[ind])
+
+            if pd.isna(lara_df['Total_#_Sites'].iloc[ind]):
+                larasites = "missing"
+            else:
+                larasites = round(lara_df['Total_#_Sites'].iloc[ind])
+
+            if lon == 0 and lat == 0:
+                continue
+            try:
+                markeri = L.Marker(
+                    location=(lat,lon),
+                    draggable=False,
+                    title=str(lara_df['Owner / Community_Name'].iloc[ind])+
+                    ' , number of sites: '+str(round(lara_df['Total_#_Sites'].iloc[ind]))+
+                    ' , House district: '+ str(house_lara)+
+                    ' , Senate district: '+ str(senate_lara)+
+                    ', LARA')
+                circlei = L.Circle(location=(lat,lon), radius=1, color="blue", fill_color="blue")
+                circlelist_lara.append(circlei)
+
+            except:
+                #print(lon,lat)
+                continue
+
+            
+            mklist_lara.append(markeri)   
     return 
 
 
@@ -246,8 +253,10 @@ geographic_regions = [
 ]
 
 
-layernames = ["Marker (name, address, # sites, source)", 
-    "Circle (location only)", #"Circle (MHVillage location only)",
+layernames = ["Marker MHVillage (name, address, # sites, source)", 
+"Marker LARA (name, address, # sites, source)",
+    "Circle MHVillage (location only)", #"Circle (MHVillage location only)",
+    "Circle LARA (location only)", 
     "Legislative districts (Michigan State Senate)", 
     "Legislative districts (Michigan State House of Representatives)"]
 app_ui = ui.page_fluid(
@@ -342,24 +351,32 @@ def server(input, output, session):
         markerorcircle = False
 
 
-        if "Marker (name, address, # sites, source)" in layerlist:
-            build_marker_layer(LARA_C = 1,MH_C =1)
+        if "Marker MHVillage (name, address, # sites, source)" in layerlist:
+            build_marker_layer(LARA_C = 0)
             marker_cluster = L.MarkerCluster(
                 name='location markers',
-                markers=tuple(mklist)
+                markers=tuple(mklist_mh)
                 )
             the_map.add_layer(marker_cluster)
             markerorcircle = True
-        if "Circle (location only)" in layerlist:
+        if "Marker LARA (name, address, # sites, source)" in layerlist:
+            build_marker_layer(LARA_C = 1)
+            marker_cluster = L.MarkerCluster(
+                name='location markers',
+                markers=tuple(mklist_lara)
+                )
+            the_map.add_layer(marker_cluster)
+            markerorcircle = True
+        if "Circle MHVillage (location only)" in layerlist:
             if not markerorcircle:
-                build_marker_layer(LARA_C = 1,MH_C =0)
-            layergroup = L.LayerGroup(name = 'location circles',layers=circlelist)
+                build_marker_layer(LARA_C = 0)
+            layergroup = L.LayerGroup(name = 'location circles',layers=circlelist_mh)
             the_map.add_layer(layergroup)
             markerorcircle = True
-        if "Circle (MHVillage location only)" in layerlist:
+        if "Circle LARA (location only)" in layerlist:
             if not markerorcircle:
-                build_marker_layer(LARA_C = 0,MH_C =1)
-            layergroup = L.LayerGroup(name = 'location circles MH',layers=circlelist)
+                build_marker_layer(LARA_C = 1)
+            layergroup = L.LayerGroup(name = 'location circles MH',layers=circlelist_lara)
             the_map.add_layer(layergroup)
             markerorcircle = True
         if "Legislative districts (Michigan State Senate)" in layerlist:
