@@ -1,3 +1,27 @@
+## this code takes the addresses from MH village and LARA
+## and uses geocode and the google API to generate clean addresses
+## and GPS coordinates respectively
+
+####INPUT FOR UPDATING DATA
+
+#assuming their in a relative folder data/
+path2folder = r"./data/" # fill in the path to your folder here.
+assert len(path2folder) > 0
+
+LARA_name_str = "LARA_with_coord.xlsx"
+mhvillage_name_str = "MHVillageAll_Dec7_dropna.csv"
+#name of columns that contain addresses
+lara_col = "Location_Address"
+mh_col = "FullstreetAddress"
+#name of outputted files
+LARA_name_str = 'data/LARA_with_all_coord.csv'
+mhvillage_name_str = 'data/mhvillage_dec7_googlecoord.csv'
+
+#* note you may need to remove line 79-80 
+#which are hard coded coordinates
+
+########################################################
+
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -33,19 +57,18 @@ def extract_lat_long(address):
 
 
 # add clean addresses
-path2folder = r"./data/" # fill in the path to your folder here.
-assert len(path2folder) > 0
 
-lara_df = pd.read_excel(path2folder + r"LARA_with_coord.xlsx")
 
-lara_df_address = copy.deepcopy(lara_df['Location_Address'])
+lara_df = pd.read_excel(path2folder + LARA_name_str)
 
-lara_df_address['no punc.'] = lara_df[['Location_Address']].apply(lambda x: x['Location_Address'].translate(str.maketrans('', '', string.punctuation)),axis=1)
-lara_df_address = pd.concat([lara_df['Location_Address'],lara_df_address['no punc.']], axis=1)
-lara_df_address.columns = ['Location_Address', 'no punc.']
+lara_df_address = copy.deepcopy(lara_df[lara_col])
+
+lara_df_address['no punc.'] = lara_df[[lara_col]].apply(lambda x: x[lara_col].translate(str.maketrans('', '', string.punctuation)),axis=1)
+lara_df_address = pd.concat([lara_df[lara_col],lara_df_address['no punc.']], axis=1)
+lara_df_address.columns = [lara_col, 'no punc.']
 
 lara_df_address['clean address'] = lara_df_address[['no punc.']].apply(lambda x: extract_clean_address(x['no punc.']) , axis=1  )
-lara_df_address = pd.concat([lara_df['Location_Address'],lara_df_address['clean address']], axis=1)
+lara_df_address = pd.concat([lara_df[lara_col],lara_df_address['clean address']], axis=1)
 lara_df_address.columns = ['LARA_Address','no punc.' 'clean address']
 
 lara_df_address['lat_long'] = lara_df_address[['clean address']].apply(lambda x: extract_lat_long(x['clean address']) , axis =1)
@@ -63,9 +86,9 @@ final_lara.drop(columns = ['Longitude','Latitude'], inplace = True)
 final_lara.to_csv('data/LARA_with_all_coord.csv')
 
 ## add MHVillage GPS
-mhvillage_df = pd.read_csv(path2folder + r"MHVillageAll_Dec7_dropna.csv")
+mhvillage_df = pd.read_csv(path2folder + mhvillage_name_str)
 
-mhvillage_df['lat_long'] = mhvillage_df[['FullstreetAddress']].apply(lambda x: extract_lat_long(x['FullstreetAddress']) , axis =1)
+mhvillage_df['lat_long'] = mhvillage_df[[mh_col]].apply(lambda x: extract_lat_long(x[mh_col]) , axis =1)
 mhvillage_df['latitude'] = mhvillage_df.apply(lambda x: x['lat_long'][0] if x['lat_long'] != '' else '', axis =1)
 mhvillage_df['longitude'] = mhvillage_df.apply(lambda x: x['lat_long'][1] if x['lat_long'] != '' else '', axis =1)
 mhvillage_df.drop(columns = ['lat_long'], inplace = True)

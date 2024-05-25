@@ -279,7 +279,7 @@ app_ui = ui.page_fluid(
         choices=list(basemaps.keys())
     ),
     ui.input_selectize("layers", "Layers to visualize:", 
-        layernames, multiple=True, selected="Circle (location only)"),
+        layernames, multiple=True, selected="Circle LARA (location only)"),
     ui.HTML("<hr> <h1>Infographics</h1>"),
     ui.output_plot("infographics1"),
     ui.output_plot("infographics2"),
@@ -304,7 +304,9 @@ app_ui = ui.page_fluid(
         font-size: 18px; ">Project lead: Hessa Al-Thani, <br>
         MH Action contact: Paul Terranova with support from Deb Campbell, <br>
         Website development: Naichen Shi, <br>
-        Data scraping and collection: Bingqing Xiang.</h2>
+        Data scraping and collection: Bingqing Xiang,<br>
+        With Support from <a href="https://ginsberg.umich.edu/ctac" 
+        target="_blank">CTAC</a> at University of Michigan.</h2>
     """),
      #       <h2 style="text-align: left; margin-bottom: 10px;font-size: 18px; 
       #  Source code can be found on
@@ -388,7 +390,6 @@ def server(input, output, session):
 
         return the_map
 
-
 # # Define server logic
 # def server(input, output, session):
     
@@ -423,6 +424,8 @@ def server(input, output, session):
     @render.code
     def info():
         return str([type(hist.widget), type(hist.value)])
+
+
 
 #removed to run on shiny.io
 app = App(app_ui, server, debug = True)
