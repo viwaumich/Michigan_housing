@@ -15,7 +15,7 @@ import pandas as pd
 import geopandas as gpd
 #from geopy.geocoders import Nominatim
 import numpy as np
-
+import io
 
 here = pathlib.Path(__file__)
 
@@ -33,21 +33,21 @@ def check_legislative_district(lat, lng, districts_geojson):
     point = Point(lng, lat)
     # Load the legislative districts GeoJSON file
     districts = gpd.read_file(districts_geojson)
-    
+
     # Create a spatial index
     spatial_index = districts.sindex
-    
+
     # Possible matches indices using spatial index
     possible_matches_index = list(spatial_index.query(point))
     possible_matches = districts.iloc[possible_matches_index]
-    
+
     # Check which district the point is in
     precise_matches = possible_matches[possible_matches.contains(point)]
-    
+
     if not precise_matches.empty:
         # Assuming 'district_name' is the column name with the district names.
         return precise_matches.iloc[0]['NAME']  # Replace 'district_name' with the actual column name
-    
+
     return None
 
 
@@ -111,7 +111,7 @@ def build_district_layers(upper=0):
     else:
         lower_layers.append(layerk)
     return
-    
+
 
 def build_marker_layer(LARA_C):
     #if len(circlelist) >0  and len(mklist)>0:
@@ -196,8 +196,8 @@ def build_marker_layer(LARA_C):
                 #print(lon,lat)
                 continue
 
-            
-            mklist_lara.append(markeri)   
+
+            mklist_lara.append(markeri)
     return 
 
 
@@ -253,39 +253,39 @@ geographic_regions = [
 ]
 
 
-layernames = ["Marker MHVillage (name, address, # sites, source)", 
+layernames = ["Marker MHVillage (name, address, # sites, source)",
 "Marker LARA (name, address, # sites, source)",
     "Circle MHVillage (location only)", #"Circle (MHVillage location only)",
-    "Circle LARA (location only)", 
-    "Legislative districts (Michigan State Senate)", 
+    "Circle LARA (location only)",
+    "Legislative districts (Michigan State Senate)",
     "Legislative districts (Michigan State House of Representatives)"]
 app_ui = ui.page_fluid(
     ui.HTML("""
-        <hr> 
+        <hr>
         <h1 style="text-align: center; margin-bottom: 10px;">Manufactured Housing Communities in Michigan</h1>
-        <h2 style="text-align: center; margin-bottom: 40px; 
-        font-size: 18px; ">Project by <a href="https://www.mhaction.org" 
-        target="_blank">MH Action</a> and 
-        <a href="https://informs.engin.umich.edu/" target="_blank">INFORMS at the University of Michigan</a> 
+        <h2 style="text-align: center; margin-bottom: 40px;
+        font-size: 18px; ">Project by <a href="https://www.mhaction.org"
+        target="_blank">MH Action</a> and
+        <a href="https://informs.engin.umich.edu/" target="_blank">INFORMS at the University of Michigan</a>
         </h2>
     """),
     output_widget("map", width="auto", height="410px"),
         ui.HTML("""
-        <h2 style="text-align: left; margin-bottom: 10px; 
+        <h2 style="text-align: left; margin-bottom: 10px;
         font-size: 16px; ">Blue circles are MHC's reported by LARA, orange circles are reported by MHVillage.</h2>
     """),
     ui.input_select(
         "basemap", "Choose a basemap:",
         choices=list(basemaps.keys())
     ),
-    ui.input_selectize("layers", "Layers to visualize:", 
+    ui.input_selectize("layers", "Layers to visualize:",
         layernames, multiple=True, selected="Circle LARA (location only)"),
     ui.HTML("<hr> <h1>Infographics</h1>"),
     ui.output_plot("infographics1"),
     ui.output_plot("infographics2"),
     ui.HTML("""
-        <h2 style="text-align: left; margin-bottom: 10px; 
-        font-size: 16px; ">(*) White numbers inside the bars signify number 
+        <h2 style="text-align: left; margin-bottom: 10px;
+        font-size: 16px; ">(*) White numbers inside the bars signify number
         of MHC's included in the average, based on availability of data on MHVillage.</h2>
     """),
 
@@ -296,22 +296,24 @@ app_ui = ui.page_fluid(
 
     ui.input_selectize("datasource", "Select a source:", choices=[ 'LARA', 'MHVillage'], ),
     ui.output_table("site_list"),
+    ui.download_button("download_data", "Download Table"),  # Add this line for the download button
+
     #ui.tags.div(ui.output_html("district_map"))
     ui.HTML("""
-        <hr> 
+        <hr>
         <h1 style="text-align: left; margin-bottom: 10px;">Credits:</h1>
-        <h2 style="text-align: left; margin-bottom: 10px; 
+        <h2 style="text-align: left; margin-bottom: 10px;
         font-size: 18px; ">Project lead: Hessa Al-Thani, <br>
         MH Action contact: Paul Terranova with support from Deb Campbell, <br>
         Website development: Naichen Shi, <br>
         Data scraping and collection: Bingqing Xiang,<br>
-        With Support from <a href="https://ginsberg.umich.edu/ctac" 
+        With Support from <a href="https://ginsberg.umich.edu/ctac"
         target="_blank">CTAC</a> at University of Michigan.</h2>
     """),
-     #       <h2 style="text-align: left; margin-bottom: 10px;font-size: 18px; 
+     #       <h2 style="text-align: left; margin-bottom: 10px;font-size: 18px;
       #  Source code can be found on
        # <a href="https://github.com/soundsinteresting/Michigan_housing/" target="_blank">Git</a> </h2>
-    
+
 )
 
 
@@ -333,22 +335,22 @@ def server(input, output, session):
         return []
 
     # Use render functions to create UI elements, output_text_verbatim is used here for simplicity to show the results
-    @output     
+    @output
     @render.ui
     def sub_category_ui():
         options = sub_category_options()
         options.sort()
         return ui.input_select("sub_category", "Select: (Note That only districts/counties with MHC data will appear in the drop down list.)", 
             options)
-     
+
     @output
     @render_widget
     def map():
         basemap = basemaps[input.basemap()]
         layerlist = input.layers()
 
-        the_map = L.Map(basemap=basemap, 
-                     center=[44.44343571548758,-84.36155640717737], 
+        the_map = L.Map(basemap=basemap,
+                     center=[44.44343571548758,-84.36155640717737],
                      zoom=6,  layout=Layout(width="100%", height="100%"))
         markerorcircle = False
 
@@ -392,7 +394,7 @@ def server(input, output, session):
 
 # # Define server logic
 # def server(input, output, session):
-    
+
     @output
     @render.plot
     def infographics1():
@@ -402,23 +404,66 @@ def server(input, output, session):
     @render.plot
     def infographics2():
         build_infographics2()
-     
+
     @output
     @render.table
     def site_list():
         if input.datasource() == 'MHVillage':
             if input.main_category() == 'County':
-                return (mhvillage_df[mhvillage_df['County'] == input.sub_category()][['Name','Sites','FullstreetAddress']]).dropna().astype({'Sites': int}).sort_values('Sites', ascending = False)
+                df = (mhvillage_df[mhvillage_df['County'] == input.sub_category()]
+                      [['Name','Sites','FullstreetAddress']])
             else:
-                results = mhvillage_df[mhvillage_df[input.main_category()] == input.sub_category()][['Name', 'Sites', 'FullstreetAddress']].astype({'Sites': int})
-                #return results.sort_values('Sites', ascending=False)
-                return (mhvillage_df[mhvillage_df[input.main_category()] == int(float(input.sub_category()))][['Name','Sites','FullstreetAddress']]).astype({'Sites': int}).sort_values('Sites', ascending = False)
+                df = (mhvillage_df[mhvillage_df[input.main_category()] == int(float(input.sub_category()))]
+                      [['Name','Sites','FullstreetAddress']])
         else:
             if input.main_category() == 'County':
-                return lara_df[lara_df[input.main_category()] == input.sub_category()][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Total_#_Sites',  ascending = False)
+                df = (lara_df[lara_df[input.main_category()] == input.sub_category()]
+                      [['Owner / Community_Name','Total_#_Sites','Location_Address']])
             else:
-                house_district = int(float(input.sub_category()))  # Ensure the sub_category is converted to an integer
-                return lara_df[lara_df[input.main_category()] == house_district][['Owner / Community_Name','Total_#_Sites','Location_Address']].sort_values('Total_#_Sites',  ascending = False)
+                house_district = int(float(input.sub_category()))
+                df = (lara_df[lara_df[input.main_category()] == house_district]
+                      [['Owner / Community_Name','Total_#_Sites','Location_Address']])
+
+        # Clean up column names by removing underscores
+        df = df.rename(columns=lambda x: x.replace('_', ' '))
+
+        # Further processing if necessary
+        df = df.dropna().astype({'Sites': int} if 'Sites' in df.columns else {})
+        df = df.sort_values('Sites' if 'Sites' in df.columns else 'Total # Sites', ascending=False)
+
+        return df
+
+    @output
+    @render.download
+    def download_data():
+        if input.datasource() == 'MHVillage':
+            if input.main_category() == 'County':
+                df = (mhvillage_df[mhvillage_df['County'] == input.sub_category()]
+                      [['Name', 'Sites', 'FullstreetAddress']])
+            else:
+                df = (mhvillage_df[mhvillage_df[input.main_category()] == int(float(input.sub_category()))]
+                      [['Name', 'Sites', 'FullstreetAddress']])
+        else:
+            if input.main_category() == 'County':
+                df = (lara_df[lara_df[input.main_category()] == input.sub_category()]
+                      [['Owner / Community_Name', 'Total_#_Sites', 'Location_Address']])
+            else:
+                house_district = int(float(input.sub_category()))
+                df = (lara_df[lara_df[input.main_category()] == house_district]
+                      [['Owner / Community_Name', 'Total_#_Sites', 'Location_Address']])
+
+        # Clean up column names by removing underscores
+        df = df.rename(columns=lambda x: x.replace('_', ' '))
+
+        # Further processing if necessary
+        df = df.dropna().astype({'Sites': int} if 'Sites' in df.columns else {})
+        df = df.sort_values('Sites' if 'Sites' in df.columns else 'Total # Sites', ascending=False)
+
+        # Convert DataFrame to CSV and return it
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return output.getvalue(), "table.csv"
 
 
     @render.code
